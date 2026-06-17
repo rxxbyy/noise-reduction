@@ -6,6 +6,24 @@ import os
 from df.enhance import enhance, init_df
 from df.io import load_audio, save_audio
 
+# DeepFilterNet's init_df shells out to `git` (df.utils.get_git_root /
+# get_commit_hash / get_branch_name) purely to log version metadata. Those
+# helpers only catch CalledProcessError, so on a machine without git installed
+# the subprocess launch raises FileNotFoundError ([WinError 2] on Windows) and
+# crashes model loading. Neutralize them — the git info is non-essential.
+import df.logger as _df_logger  # noqa: E402
+import df.utils as _df_utils  # noqa: E402
+
+
+def _no_git():
+    return None
+
+
+for _mod in (_df_utils, _df_logger):
+    for _fn in ("get_git_root", "get_commit_hash", "get_branch_name"):
+        if hasattr(_mod, _fn):
+            setattr(_mod, _fn, _no_git)
+
 
 def load_model():
     """Load the DeepFilterNet model and DF state once.
