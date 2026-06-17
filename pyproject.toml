@@ -1,0 +1,18 @@
+[project]
+name = "supression"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "deepfilternet>=0.5.6",
+    "soundfile>=0.14.0",
+    "tkinterdnd2>=0.5.0",
+    "torch==2.0.1",
+    "torchaudio==2.0.2",
+]
+
+[dependency-groups]
+dev = [
+    "pyinstaller>=6.21.0",
+]
