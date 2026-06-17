@@ -19,8 +19,9 @@ for _stream in ("stdout", "stderr"):
 
 import queue
 import threading
+import traceback
 import tkinter as tk
-from tkinter import filedialog, ttk
+from tkinter import filedialog, messagebox, ttk
 
 # Drag-and-drop is provided by the optional `tkinterdnd2` package. We fall back
 # to a plain window (Browse button only) if it is unavailable.
@@ -160,12 +161,13 @@ class NoiseApp:
             if self.model_state is None:
                 self.events.put(("status", "Loading model (first run downloads it)…"))
                 self.model_state = load_model()
-        except Exception as exc:  # pragma: no cover
-            self.events.put(("error", f"Failed to load model: {exc}"))
+        except Exception:  # pragma: no cover
+            self.events.put(("fatal", "Failed to load model:\n\n" + traceback.format_exc()))
             self.events.put(("done", None))
             return
 
         done = 0
+        errors = []
         for path in files:
             base, ext = os.path.splitext(path)
             out = f"{base}_clean{ext or '.wav'}"
@@ -174,9 +176,11 @@ class NoiseApp:
                 suppress_noise(path, out, atten_lim_db=atten_lim_db, model_state=self.model_state)
                 done += 1
                 self.events.put(("progress", done))
-            except Exception as exc:
-                self.events.put(("error", f"{os.path.basename(path)}: {exc}"))
+            except Exception:
+                errors.append(f"{os.path.basename(path)}:\n{traceback.format_exc()}")
         self.events.put(("status", f"Done. Cleaned {done}/{len(files)} file(s)."))
+        if errors:
+            self.events.put(("errors", "\n\n".join(errors)))
         self.events.put(("done", None))
 
     def _poll_events(self):
@@ -187,8 +191,10 @@ class NoiseApp:
                     self._set_status(payload)
                 elif kind == "progress":
                     self.progress.config(value=payload)
-                elif kind == "error":
-                    self._set_status(payload)
+                elif kind in ("fatal", "errors"):
+                    # Show the full traceback in a dialog so failures aren't
+                    # hidden behind the final "Done." status line.
+                    messagebox.showerror("Noise Reducer — error", payload)
                 elif kind == "done":
                     self.run_btn.config(state="normal")
         except queue.Empty:

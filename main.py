@@ -3,8 +3,11 @@
 import argparse
 import os
 
+import soundfile as sf
+import torch
+from torchaudio.functional import resample
+
 from df.enhance import enhance, init_df
-from df.io import load_audio, save_audio
 
 # DeepFilterNet's init_df shells out to `git` (df.utils.get_git_root /
 # get_commit_hash / get_branch_name) purely to log version metadata. Those
@@ -58,12 +61,20 @@ def suppress_noise(
     # DeepFilterNet operates at 48 kHz.
     model, df_state, sr = model_state if model_state is not None else load_model()
 
-    # Load audio, resampling to the model sample rate if needed. Shape: [C, T].
-    audio, _ = load_audio(input_path, sr=sr)
+    # Read audio with soundfile rather than torchaudio: torchaudio's file-I/O
+    # backend is unreliable inside a frozen (PyInstaller) app, whereas soundfile
+    # bundles libsndfile and works consistently. data is [frames, channels].
+    data, orig_sr = sf.read(input_path, dtype="float32", always_2d=True)
+    audio = torch.from_numpy(data).t().contiguous()  # -> [channels, frames]
+
+    # Resample to the model sample rate if needed (pure tensor op, frozen-safe).
+    if orig_sr != sr:
+        audio = resample(audio, orig_sr, sr)
 
     enhanced = enhance(model, df_state, audio, atten_lim_db=atten_lim_db)
 
-    save_audio(output_path, enhanced, sr)
+    # Write 16-bit PCM. soundfile expects [frames, channels].
+    sf.write(output_path, enhanced.t().cpu().numpy(), sr, subtype="PCM_16")
     return output_path
 
 
