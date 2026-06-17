@@ -169,8 +169,10 @@ class NoiseApp:
         done = 0
         errors = []
         for path in files:
-            base, ext = os.path.splitext(path)
-            out = f"{base}_clean{ext or '.wav'}"
+            # Always write WAV (16-bit PCM); the input may be mp3/flac/etc.,
+            # but those containers can't hold raw PCM the way we write it.
+            base, _ = os.path.splitext(path)
+            out = f"{base}_clean.wav"
             self.events.put(("status", f"Processing {os.path.basename(path)}…"))
             try:
                 suppress_noise(path, out, atten_lim_db=atten_lim_db, model_state=self.model_state)

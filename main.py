@@ -96,8 +96,8 @@ def main():
 
     output = args.output
     if output is None:
-        base, ext = os.path.splitext(args.input)
-        output = f"{base}_clean{ext or '.wav'}"
+        base, _ = os.path.splitext(args.input)
+        output = f"{base}_clean.wav"
 
     out = suppress_noise(args.input, output, atten_lim_db=args.atten_lim_db)
     print(f"Cleaned audio written to: {out}")
