@@ -7,6 +7,16 @@ PyInstaller.
 """
 
 import os
+import sys
+
+# In a windowed PyInstaller build (console=False) sys.stdout/sys.stderr are
+# None. Libraries that attach log sinks to them — notably loguru, used by
+# DeepFilterNet — crash with "Cannot log to objects of type 'NoneType'". Give
+# them real sinks BEFORE importing anything that touches df/loguru below.
+for _stream in ("stdout", "stderr"):
+    if getattr(sys, _stream) is None:
+        setattr(sys, _stream, open(os.devnull, "w"))
+
 import queue
 import threading
 import tkinter as tk
